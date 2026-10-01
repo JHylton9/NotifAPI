@@ -1,0 +1,6 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastapi",
+  "functions": {"main.py": {"maxDuration": 300}},
+  "crons": [{"path": "/cron/poll", "schedule": "0 10 * * *"}]
+}
