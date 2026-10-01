@@ -2,6 +2,7 @@ import hmac
 import hashlib
 import os
 import random
+import re
 import smtplib
 import ssl
 from email.message import EmailMessage
@@ -20,12 +21,34 @@ OUTAGE_TERMS = (
     "without electricity", "without power", "power interruption", "load shedding",
 )
 
+SUPPORT_REPLY_TERMS = (
+    "thank you for contacting", "outage you are experiencing",
+    "we sincerely apologize", "emergency team is aware",
+)
+
+JAMAICA_SCOPE_TERMS = (
+    "kingston", "st. andrew", "saint andrew", "st. catherine", "saint catherine",
+    "clarendon", "manchester", "st. elizabeth", "saint elizabeth", "westmoreland",
+    "hanover", "st. james", "saint james", "trelawny", "st. ann", "saint ann",
+    "st. mary", "saint mary", "portland", "st. thomas", "saint thomas",
+    "islandwide", "system-wide", "system wide",
+)
+
+LOCATION_PATTERNS = (
+    r"\bcustomers\s+(?:in|across|served by)\b",
+    r"\b(?:communities|residents|sections|areas)\s+(?:in|of|served by)\b",
+    r"\b(?:along|within|affecting|including)\s+[a-z0-9]",
+    r"\b(?:road|avenue|district|community|parish|feeder|substation|facility|plant|station)\b",
+    r"\b(?:and|&amp;|&)\s+environs\b",
+)
+
 
 class Post(BaseModel):
     id: str | None = Field(default=None, pattern=r"^[0-9]{1,30}$")
     account: str = Field(min_length=1, max_length=200)
     text: str = Field(min_length=1, max_length=50000)
     url: HttpUrl | None = None
+    is_reply: bool = False
 
     @field_validator("account")
     @classmethod
@@ -85,17 +108,28 @@ def watched_accounts():
 
 
 def category_for(post: Post):
-    if any(term in post.text.lower() for term in OUTAGE_TERMS):
+    text = post.text.lower()
+    if any(term in text for term in SUPPORT_REPLY_TERMS):
+        return None
+    has_outage_term = any(term in text for term in OUTAGE_TERMS)
+    has_scope = any(term in text for term in JAMAICA_SCOPE_TERMS) or any(
+        re.search(pattern, text) for pattern in LOCATION_PATTERNS
+    )
+    if post.is_reply:
+        return "outage" if has_outage_term and has_scope else None
+    if has_outage_term:
         return "outage"
     try:
-        rate = float(os.getenv("RANDOM_POST_RATE", "0.05"))
+        rate = float(os.getenv("RANDOM_POST_RATE", "1.0"))
         if not 0 <= rate <= 1:
             raise ValueError
     except ValueError:
         raise HTTPException(503, "RANDOM_POST_RATE must be between 0 and 1") from None
     # Stable sampling for X posts: retries retain the same selection.
     draw = int.from_bytes(hashlib.sha256(post.id.encode()).digest()[:8], "big") / 2**64 if post.id else random.random()
-    return "random" if draw < rate else None
+    if draw >= rate:
+        return None
+    return "update" if rate == 1 else "random"
 
 
 @app.post("/post", dependencies=[Depends(authenticate)])

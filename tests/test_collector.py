@@ -13,6 +13,25 @@ def test_nwc_water_language():
         assert category_for(Post(account="nwcjam", text=text)) == "outage"
 
 
+def test_support_reply_is_not_an_outage():
+    text = ("@ktaffe90 Good morning. Thank you for contacting myjpsonline. "
+            "We sincerely apologize for any inconvenience caused by the outage you are experiencing. "
+            "Our emergency team is aware of the outage and is working to have power restored.")
+    assert category_for(Post(account="myjpsonline", text=text, is_reply=True)) is None
+    assert category_for(Post(account="myjpsonline", text=text)) is None
+
+
+def test_location_bearing_reply_can_qualify():
+    post = Post(account="myjpsonline", is_reply=True,
+                text="Customers in sections of Portmore are experiencing a power outage.")
+    assert category_for(post) == "outage"
+
+
+def test_locationless_reply_is_not_sampled(monkeypatch):
+    monkeypatch.setenv("RANDOM_POST_RATE", "1")
+    assert category_for(Post(account="myjpsonline", text="Thanks for the message", is_reply=True)) is None
+
+
 def test_sampling_stays_stable(monkeypatch):
     monkeypatch.setenv("RANDOM_POST_RATE", "0.05")
     post = Post(id="123456789", account="nwcjam", text="Ordinary update")
@@ -25,6 +44,20 @@ def test_pagination_is_oldest_first():
     with patch("collector.x_get", side_effect=pages):
         posts = fetch_posts(Mock(), "1", {"since_id": "10"}, time.monotonic() + 30)
     assert [p["id"] for p in posts] == ["20", "30"]
+
+
+def test_timeline_excludes_replies_and_retweets_by_default(monkeypatch):
+    monkeypatch.delenv("INCLUDE_REPLIES", raising=False)
+    with patch("collector.x_get", return_value={"data": [], "meta": {}}) as get:
+        fetch_posts(Mock(), "1", {"since_id": "10"}, time.monotonic() + 30)
+    assert get.call_args.args[2]["exclude"] == "replies,retweets"
+
+
+def test_timeline_can_include_replies(monkeypatch):
+    monkeypatch.setenv("INCLUDE_REPLIES", "true")
+    with patch("collector.x_get", return_value={"data": [], "meta": {}}) as get:
+        fetch_posts(Mock(), "1", {"since_id": "10"}, time.monotonic() + 30)
+    assert "exclude" not in get.call_args.args[2]
 
 
 def test_failed_delivery_does_not_advance_cursor():
