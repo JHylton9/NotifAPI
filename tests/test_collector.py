@@ -9,10 +9,17 @@ from main import Post, category_for
 
 
 def test_nwc_water_language():
-    for text in ("Customers in Kingston will be without water",
-                 "low water pressure in St. Ann",
-                 "water supply disruption affecting communities in Portland"):
-        assert category_for(Post(account="nwcjam", text=text)) == "outage"
+    samples = {
+        "Customers in Kingston will be without water": "interruption",
+        "low water pressure in St. Ann": "interruption",
+        "water supply disruption affecting communities in Portland": "interruption",
+        "TEMPORARY WATER SUPPLY DISRUPTION IN SPICY GROVE, ST. ANN": "interruption",
+        "INTERNAL ELECTRICAL ISSUE INTERRUPTS WATER SUPPLY FOR CUSTOMERS IN ROCK RIVER AND NEARBY AREAS IN CLARENDON": "interruption",
+        "RESTORATION UNDERWAY FOR CUSTOMERS IN DINTHILL, DEESIDE, LINSTEAD AND NEARBY AREAS, ST. CATHERINE": "restoration",
+        "Power outage affecting customers in Portmore, St. Catherine": "outage",
+    }
+    for text, expected in samples.items():
+        assert category_for(Post(account="nwcjam", text=text)) == expected
 
 
 def test_locationless_outage_text_is_not_forwarded():

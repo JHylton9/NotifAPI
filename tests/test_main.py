@@ -27,7 +27,7 @@ def test_authentication():
 def test_outage_and_account_normalization():
     with patch("main.send_email") as send:
         response = post("Service RESTORED in Kingston", " @Account1 ")
-        assert response.json() == {"forwarded": True, "category": "outage"}
+        assert response.json() == {"forwarded": True, "category": "restoration"}
         assert send.call_args.args[0].account == "account1"
         send.assert_called_once()
 

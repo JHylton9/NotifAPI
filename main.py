@@ -19,6 +19,35 @@ OUTAGE_TERMS = (
     "without water", "no water", "low water pressure", "water supply disruption",
     "water supply interruption", "disruption in their water supply", "supply disrupted",
     "without electricity", "without power", "power interruption", "load shedding",
+    "interrupts water supply", "interrupted water supply", "supply interrupted",
+    "service suspended", "supply suspended", "service unavailable",
+    "restoration underway", "restoration in progress", "supply restored",
+    "service restored", "service has resumed", "supply has resumed",
+    "back in service", "returned to service", "operations restored",
+)
+
+RESTORATION_PATTERNS = (
+    r"\brestor(?:ation|e|ed|ing)\b",
+    r"\b(?:service|supply|operations?)\s+(?:has\s+)?resumed\b",
+    r"\b(?:back|returned)\s+(?:in|to)\s+service\b",
+    r"\brepairs?\s+(?:completed|complete)\b",
+)
+
+INTERRUPTION_PATTERNS = (
+    r"\binterrupt(?:s|ed|ion|ions|ing)?\b",
+    r"\bdisrupt(?:s|ed|ion|ions|ing)?\b",
+    r"\b(?:without|no)\s+(?:water|power|electricity|service)\b",
+    r"\blow\s+water\s+pressure\b",
+    r"\b(?:service|supply)\s+(?:is\s+|will\s+be\s+)?suspend(?:ed|ed temporarily)?\b",
+    r"\b(?:service|supply)\s+unavailable\b",
+    r"\b(?:shutdown|shut\s+down|offline|out\s+of\s+service)\b",
+    r"\b(?:water\s+)?lock[- ]off\b",
+)
+
+OUTAGE_PATTERNS = (
+    r"\b(?:power\s+|water\s+|service\s+)?outages?\b",
+    r"\bload\s+shedding\b",
+    r"\b(?:power|electricity)\s+supply\s+(?:issue|failure|fault)\b",
 )
 
 SUPPORT_REPLY_TERMS = (
@@ -27,10 +56,13 @@ SUPPORT_REPLY_TERMS = (
 )
 
 JAMAICA_SCOPE_TERMS = (
-    "kingston", "st. andrew", "saint andrew", "st. catherine", "saint catherine",
+    "kingston", "st. andrew", "st andrew", "saint andrew",
+    "st. catherine", "st catherine", "saint catherine",
     "clarendon", "manchester", "st. elizabeth", "saint elizabeth", "westmoreland",
-    "hanover", "st. james", "saint james", "trelawny", "st. ann", "saint ann",
-    "st. mary", "saint mary", "portland", "st. thomas", "saint thomas",
+    "hanover", "st. james", "st james", "saint james", "trelawny",
+    "st. ann", "st ann", "saint ann", "#stann",
+    "st. mary", "st mary", "saint mary", "#stmary",
+    "portland", "st. thomas", "st thomas", "saint thomas",
     "islandwide", "system-wide", "system wide",
 )
 
@@ -40,6 +72,8 @@ LOCATION_PATTERNS = (
     r"\b(?:along|within|affecting|including)\s+[a-z0-9]",
     r"\b(?:road|avenue|district|community|parish|feeder|substation|facility|plant|station)\b",
     r"\b(?:and|&amp;|&)\s+environs\b",
+    r"\b(?:nearby|surrounding)\s+areas\b",
+    r"\b(?:outage|disruption|interruption|restoration)\s+(?:in|for|affecting)\s+(?!the\s+area\b|your\s+area\b)[a-z0-9]",
 )
 
 
@@ -111,7 +145,15 @@ def category_for(post: Post):
     text = post.text.lower()
     if any(term in text for term in SUPPORT_REPLY_TERMS):
         return None
-    has_outage_term = any(term in text for term in OUTAGE_TERMS)
+    event_category = None
+    for category, patterns in (
+        ("restoration", RESTORATION_PATTERNS),
+        ("interruption", INTERRUPTION_PATTERNS),
+        ("outage", OUTAGE_PATTERNS),
+    ):
+        if any(re.search(pattern, text) for pattern in patterns):
+            event_category = category
+            break
     has_scope = any(term in text for term in JAMAICA_SCOPE_TERMS) or any(
         re.search(pattern, text) for pattern in LOCATION_PATTERNS
     )
@@ -119,8 +161,8 @@ def category_for(post: Post):
     # would add cost, and isolated support replies are not public notices.
     if post.is_reply:
         return None
-    if has_outage_term and has_scope:
-        return "outage"
+    if event_category and has_scope:
+        return event_category
     try:
         rate = float(os.getenv("RANDOM_POST_RATE", "0.0"))
         if not 0 <= rate <= 1:
