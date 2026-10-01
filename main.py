@@ -115,12 +115,14 @@ def category_for(post: Post):
     has_scope = any(term in text for term in JAMAICA_SCOPE_TERMS) or any(
         re.search(pattern, text) for pattern in LOCATION_PATTERNS
     )
+    # Timeline replies are intentionally excluded: reading conversation context
+    # would add cost, and isolated support replies are not public notices.
     if post.is_reply:
-        return "outage" if has_outage_term and has_scope else None
-    if has_outage_term:
+        return None
+    if has_outage_term and has_scope:
         return "outage"
     try:
-        rate = float(os.getenv("RANDOM_POST_RATE", "1.0"))
+        rate = float(os.getenv("RANDOM_POST_RATE", "0.0"))
         if not 0 <= rate <= 1:
             raise ValueError
     except ValueError:
@@ -129,7 +131,7 @@ def category_for(post: Post):
     draw = int.from_bytes(hashlib.sha256(post.id.encode()).digest()[:8], "big") / 2**64 if post.id else random.random()
     if draw >= rate:
         return None
-    return "update" if rate == 1 else "random"
+    return "random"
 
 
 @app.post("/post", dependencies=[Depends(authenticate)])

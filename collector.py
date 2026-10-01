@@ -62,7 +62,7 @@ def x_get(client, path, params=None):
 def fetch_posts(client, user_id, params, deadline):
     """Fetch the full bounded interval before advancing any cursor."""
     include_replies = os.getenv("INCLUDE_REPLIES", "false").lower() in {"1", "true", "yes"}
-    defaults = {"max_results": 100, "post.fields": "created_at,note_post"}
+    defaults = {"max_results": 100, "post.fields": "created_at,note_post,conversation_id"}
     if not include_replies:
         defaults["exclude"] = "replies,retweets"
     params = {**defaults, **params}
@@ -86,7 +86,7 @@ def process_posts(store, account, posts, deadline):
         if time.monotonic() > deadline:
             raise HTTPException(503, "Delivery time budget exceeded; progress retained")
         references = item.get("referenced_posts", item.get("referenced_tweets", []))
-        is_reply = bool(item.get("in_reply_to_user_id")) or any(
+        is_reply = item.get("conversation_id") not in {None, item["id"]} or bool(item.get("in_reply_to_user_id")) or any(
             reference.get("type") in {"replied_to", "replied-to"} for reference in references
         )
         post = Post(id=item["id"], account=account, is_reply=is_reply,

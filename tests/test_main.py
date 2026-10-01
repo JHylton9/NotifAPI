@@ -26,7 +26,7 @@ def test_authentication():
 
 def test_outage_and_account_normalization():
     with patch("main.send_email") as send:
-        response = post("Service RESTORED", " @Account1 ")
+        response = post("Service RESTORED in Kingston", " @Account1 ")
         assert response.json() == {"forwarded": True, "category": "outage"}
         assert send.call_args.args[0].account == "account1"
         send.assert_called_once()
@@ -34,7 +34,7 @@ def test_outage_and_account_normalization():
 
 def test_unmonitored():
     with patch("main.send_email") as send:
-        assert post("outage", "stranger").json()["forwarded"] is False
+        assert post("outage in Kingston", "stranger").json()["forwarded"] is False
         send.assert_not_called()
 
 
@@ -53,13 +53,13 @@ def test_validation():
 
 def test_missing_email_config(monkeypatch):
     monkeypatch.delenv("SMTP_HOST", raising=False)
-    assert post("outage").status_code == 503
+    assert post("outage in Kingston").status_code == 503
 
 
 def test_smtp_failure(monkeypatch):
     for key in ("DESTINATION_EMAIL", "EMAIL_FROM", "SMTP_HOST", "SMTP_USERNAME", "SMTP_PASSWORD"):
         monkeypatch.setenv(key, "test@example.com")
     with patch("main.smtplib.SMTP", side_effect=OSError("private details")):
-        response = post("outage")
+        response = post("outage in Kingston")
         assert response.status_code == 502
         assert "private details" not in response.text

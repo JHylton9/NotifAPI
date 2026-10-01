@@ -9,8 +9,14 @@ from main import Post, category_for
 
 
 def test_nwc_water_language():
-    for text in ("Customers will be without water", "low water pressure", "water supply disruption"):
+    for text in ("Customers in Kingston will be without water",
+                 "low water pressure in St. Ann",
+                 "water supply disruption affecting communities in Portland"):
         assert category_for(Post(account="nwcjam", text=text)) == "outage"
+
+
+def test_locationless_outage_text_is_not_forwarded():
+    assert category_for(Post(account="myjpsonline", text="We are aware of the outage")) is None
 
 
 def test_support_reply_is_not_an_outage():
@@ -21,10 +27,10 @@ def test_support_reply_is_not_an_outage():
     assert category_for(Post(account="myjpsonline", text=text)) is None
 
 
-def test_location_bearing_reply_can_qualify():
+def test_location_bearing_reply_is_still_excluded():
     post = Post(account="myjpsonline", is_reply=True,
                 text="Customers in sections of Portmore are experiencing a power outage.")
-    assert category_for(post) == "outage"
+    assert category_for(post) is None
 
 
 def test_locationless_reply_is_not_sampled(monkeypatch):
@@ -64,7 +70,7 @@ def test_failed_delivery_does_not_advance_cursor():
     store = Mock()
     with patch("collector.send_email", side_effect=HTTPException(502, "failed")):
         with pytest.raises(HTTPException):
-            process_posts(store, "nwcjam", [{"id": "20", "text": "outage"}], time.monotonic() + 30)
+            process_posts(store, "nwcjam", [{"id": "20", "text": "outage in Kingston"}], time.monotonic() + 30)
     store.command.assert_not_called()
 
 
@@ -73,8 +79,18 @@ def test_cursor_follows_successful_send():
     store = Mock()
     store.command.side_effect = lambda *args: calls.append("cursor")
     with patch("collector.send_email", side_effect=lambda *args: calls.append("email")):
-        assert process_posts(store, "nwcjam", [{"id": "20", "text": "outage"}], time.monotonic() + 30)["emailed"] == 1
+        assert process_posts(store, "nwcjam", [{"id": "20", "text": "outage in Kingston"}], time.monotonic() + 30)["emailed"] == 1
     assert calls == ["email", "cursor"]
+
+
+def test_conversation_id_marks_reply():
+    store = Mock()
+    item = {"id": "20", "conversation_id": "10",
+            "text": "Customers in Kingston face a power outage"}
+    with patch("collector.send_email") as send:
+        result = process_posts(store, "myjpsonline", [item], time.monotonic() + 30)
+    assert result["emailed"] == 0
+    send.assert_not_called()
 
 
 def test_overlapping_poll_skips():
