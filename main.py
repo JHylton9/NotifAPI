@@ -17,6 +17,7 @@ OUTAGE_TERMS = (
     "no service", "restoration", "restored", "emergency outage",
     "scheduled outage", "unplanned outage",
     "without water", "no water", "low water pressure", "water supply disruption",
+    "being impacted", "broken main", "broken pipeline",
     "water supply interruption", "disruption in their water supply", "supply disrupted",
     "without electricity", "without power", "power interruption", "load shedding",
     "interrupts water supply", "interrupted water supply", "supply interrupted",
@@ -42,6 +43,10 @@ INTERRUPTION_PATTERNS = (
     r"\b(?:service|supply)\s+unavailable\b",
     r"\b(?:shutdown|shut\s+down|offline|out\s+of\s+service)\b",
     r"\b(?:water\s+)?lock[- ]off\b",
+    r"\b(?:being\s+)?impacted\b",
+    r"\bbroken\s+(?:main|pipeline|line|pipe)\b",
+    r"\bwater\s+supply\b.*\b(?:impacted|affected|interrupted|disrupted)\b",
+    r"\bsupply\s+to\s+customers\b.*\b(?:impacted|affected|interrupted|disrupted)\b",
 )
 
 OUTAGE_PATTERNS = (

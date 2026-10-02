@@ -17,6 +17,11 @@ def test_nwc_water_language():
         "INTERNAL ELECTRICAL ISSUE INTERRUPTS WATER SUPPLY FOR CUSTOMERS IN ROCK RIVER AND NEARBY AREAS IN CLARENDON": "interruption",
         "RESTORATION UNDERWAY FOR CUSTOMERS IN DINTHILL, DEESIDE, LINSTEAD AND NEARBY AREAS, ST. CATHERINE": "restoration",
         "Power outage affecting customers in Portmore, St. Catherine": "outage",
+        (
+            "Water supply to customers in Salt Marsh and Greenside, Trelawny is currently "
+            "being impacted by a broken main on the pipeline network. The National Water "
+            "Commission (NWC) is working to complete the necessary repair by 2:00 p.m. today."
+        ): "interruption",
     }
     for text, expected in samples.items():
         assert category_for(Post(account="nwcjam", text=text)) == expected
